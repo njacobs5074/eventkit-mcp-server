@@ -8,6 +8,9 @@ description = "Local MCP server providing tools for macOS Reminders via Apple Ev
 name = "eventkit-mcp-server"
 path = "src/main.rs"
 
+[patch.crates-io]
+highlandcows-eventkit = { path = "../highlandcows/crates/eventkit" }
+
 [dependencies]
 highlandcows-eventkit = "0.4.0"
 rmcp = { version = "1", features = ["server", "macros", "transport-io"] }
