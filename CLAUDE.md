@@ -5,8 +5,8 @@ This file provides guidance to Claude Code when working in this repository.
 ## Overview
 
 `eventkit-mcp-server` is a local MCP server (stdio transport) that exposes macOS
-Reminders via Apple's EventKit framework. It depends on the published
-`highlandcows-eventkit` crate from the sibling `highlandcows/` project.
+Reminders and Calendar events via Apple's EventKit framework. It depends on
+`highlandcows-eventkit` from the sibling `highlandcows/` project.
 
 ## Workflow
 
@@ -31,9 +31,9 @@ cargo clippy           # lint
 cargo fmt              # format
 ```
 
-There are no automated tests — the server requires a live macOS Reminders database
-and TCC authorization. Test manually by running the binary and connecting an MCP
-client, or use the MCP Inspector:
+There are no automated tests — the server requires a live macOS Reminders and
+Calendar database with TCC authorization. Test manually by running the binary and
+connecting an MCP client, or use the MCP Inspector:
 
 ```bash
 npx @modelcontextprotocol/inspector target/debug/eventkit-mcp-server
@@ -43,50 +43,49 @@ npx @modelcontextprotocol/inspector target/debug/eventkit-mcp-server
 
 ```
 src/
-  main.rs      — entry point: connect, authorize, serve on stdio, wait
+  main.rs      — entry point: connect, authorize both stores, serve on stdio, wait
   server.rs    — EventKitServer: tool definitions + ServerHandler impl
 ```
 
 ### Key design decisions
 
-- **Startup authorization**: Reminders authorization happens in `main()` before the
-  MCP server starts. If authorization fails the process exits immediately with a
-  clear error. This avoids partial initialization and ensures every tool call has a
-  valid token.
+- **Startup authorization**: Both Reminders and Calendar authorization happen in
+  `main()` before the MCP server starts. If either fails the process exits
+  immediately with a clear error. This avoids partial initialization and ensures
+  every tool call has a valid token.
 
-- **`FullAccessToken` in `Arc`**: `FullAccessToken` from `highlandcows-eventkit` is
-  not `Clone` (intentional — it's a compile-time capability token). It's stored in
-  `Arc<FullAccessToken>` so the `EventKitServer` can implement `Clone` (required by
-  `#[tool_router]`) without duplicating the token.
+- **Tokens in `Arc`**: `FullAccessToken` and `CalendarFullAccessToken` from
+  `highlandcows-eventkit` are not `Clone` (intentional — they are compile-time
+  capability tokens). Both are stored in `Arc<T>` so `EventKitServer` can implement
+  `Clone` (required by `#[tool_router]`) without duplicating the tokens.
 
-- **Sync EventKit calls via `block_in_place`**: EventKit's Reminders APIs are
-  synchronous. Tool handlers call `tokio::task::block_in_place` to safely block a
-  tokio worker thread without starving the runtime. This works because
-  `#[tokio::main]` uses the multi-threaded scheduler.
+- **Sync EventKit calls via `block_in_place`**: EventKit's APIs are synchronous.
+  Tool handlers call `tokio::task::block_in_place` to safely block a tokio worker
+  thread without starving the runtime. This works because `#[tokio::main]` uses the
+  multi-threaded scheduler.
 
-- **`&*token` vs `&token` for `save`**: `ReminderStore::save` takes
-  `&impl RemindersAccess`, which requires the concrete type to be resolved.
-  Auto-deref coercions don't apply here, so the explicit dereference `&*token`
-  is needed to go from `&Arc<FullAccessToken>` → `&FullAccessToken`. Other methods
-  take `&FullAccessToken` directly and can use `&token` with auto-deref.
+- **`&*token` for `save` and `remove`**: `ReminderStore::save`,
+  `CalendarStore::save`, and `CalendarStore::remove` take `&impl <Trait>` (generic
+  bound), so auto-deref coercions from `Arc<T>` don't apply. Those call sites use
+  `&*token` to explicitly deref through the `Arc`. Other methods take the concrete
+  token type directly and accept `&token`.
+
+- **`update_event` fetch-then-save**: The update tool fetches the current event,
+  patches only the fields the caller supplied, then saves. This avoids callers
+  having to re-supply unchanged fields and prevents accidental data loss.
 
 ### Dependency relationship
 
 ```
 eventkit-mcp-server
-  └── highlandcows-eventkit (crates.io, "0.4.0")
+  └── highlandcows-eventkit (local path patch → ../highlandcows/crates/eventkit)
         └── objc2-event-kit (Apple EventKit Objective-C bindings)
 ```
 
-To develop against local, unpublished changes to `highlandcows-eventkit`, add a
-patch override in `Cargo.toml`:
-
-```toml
-[patch.crates-io]
-highlandcows-eventkit = { path = "../highlandcows/crates/eventkit" }
-```
-
-Remove the patch before committing.
+The `[patch.crates-io]` override in `Cargo.toml` redirects the declared
+`"0.4.0"` dependency to the local crate. This is necessary because the Calendar
+API was added after `0.4.0` was published. Remove the patch and bump the version
+once a new version is published.
 
 ## Adding new tools
 
@@ -94,8 +93,4 @@ Remove the patch before committing.
 2. Add the tool method to the `#[tool_router]` impl block with a `#[tool(description = "...")]` attribute
 3. The method signature is `fn tool_name(&self, Parameters(p): Parameters<MyParams>) -> Result<CallToolResult, McpError>`
 4. Use `tokio::task::block_in_place(|| ...)` to call synchronous EventKit methods
-5. Update `get_info()` instructions string in the `ServerHandler` impl
-
-## Roadmap
-
-- Calendar event tools (blocked on `CalendarStore` save/remove in `highlandcows-eventkit`)
+5. Update the `get_info()` instructions string in the `ServerHandler` impl

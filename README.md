@@ -1,6 +1,6 @@
 # eventkit-mcp-server
 
-A local [Model Context Protocol](https://modelcontextprotocol.io) server that exposes macOS Reminders via Apple's EventKit framework.
+A local [Model Context Protocol](https://modelcontextprotocol.io) server that exposes macOS Reminders and Calendar events via Apple's EventKit framework.
 
 > **Created with [Claude Code](https://claude.ai/code) by Anthropic.**
 
@@ -10,6 +10,7 @@ A local [Model Context Protocol](https://modelcontextprotocol.io) server that ex
 
 - macOS (EventKit is Apple-only)
 - Reminders access granted to your terminal in **System Settings → Privacy & Security → Reminders**
+- Calendar access granted to your terminal in **System Settings → Privacy & Security → Calendar**
 
 ## Building
 
@@ -21,7 +22,7 @@ The binary is written to `target/release/eventkit-mcp-server`.
 
 ## Usage
 
-The server uses stdio transport. On startup it connects to the system Reminders database and requests authorization — on first run macOS shows a permission dialog naming your terminal. Once authorized it serves MCP requests over stdin/stdout until the client disconnects.
+The server uses stdio transport. On startup it connects to the system Reminders and Calendar databases and requests authorization — on first run macOS shows a permission dialog naming your terminal. Once authorized it serves MCP requests over stdin/stdout until the client disconnects.
 
 ### Claude Desktop
 
@@ -56,6 +57,8 @@ Add to your project or global `.claude/settings.json`:
 
 ## Tools
 
+### Reminders
+
 | Tool | Description |
 |------|-------------|
 | `list_reminder_lists` | List all Reminder lists visible to the current user |
@@ -65,7 +68,22 @@ Add to your project or global `.claude/settings.json`:
 | `complete_reminder` | Mark a reminder as completed |
 | `delete_reminder` | Delete a reminder by its stable identifier |
 
-### Tool inputs
+### Calendar
+
+| Tool | Description |
+|------|-------------|
+| `list_calendars` | List all Calendars visible to the current user |
+| `list_events` | List events in a date range, optionally filtered by calendar |
+| `get_event` | Fetch a single event by its stable identifier |
+| `create_event` | Create a new calendar event |
+| `update_event` | Update fields on an existing event |
+| `delete_event` | Delete an event by its stable identifier |
+
+---
+
+## Tool inputs
+
+### Reminders
 
 **`list_reminders`**
 ```json
@@ -90,6 +108,48 @@ Add to your project or global `.claude/settings.json`:
 `priority`: `0` = none (default), `1` = high, `5` = medium, `9` = low.  
 `due_date`: RFC 3339 string (optional).
 
+### Calendar
+
+**`list_events`**
+```json
+{
+  "start": "2026-06-01T00:00:00Z",
+  "end": "2026-06-30T23:59:59Z",
+  "calendar_id": "optional-calendar-identifier"
+}
+```
+
+**`get_event`** / **`delete_event`**
+```json
+{ "id": "event-identifier" }
+```
+
+**`create_event`**
+```json
+{
+  "title": "Team sync",
+  "start": "2026-07-01T09:00:00Z",
+  "end": "2026-07-01T10:00:00Z",
+  "notes": "Quarterly review",
+  "calendar_id": "optional-calendar-identifier",
+  "location": "Conf room A",
+  "is_all_day": false
+}
+```
+
+**`update_event`**
+```json
+{
+  "id": "event-identifier",
+  "title": "Updated title",
+  "start": "2026-07-01T10:00:00Z",
+  "end": "2026-07-01T11:00:00Z",
+  "notes": "New notes",
+  "location": "Conf room B"
+}
+```
+All fields except `id` are optional — only the fields you supply are changed.
+
 ---
 
 ## Tracing
@@ -100,9 +160,3 @@ The server logs to stderr. Control verbosity with the `RUST_LOG` environment var
 RUST_LOG=info eventkit-mcp-server
 RUST_LOG=debug eventkit-mcp-server
 ```
-
----
-
-## Roadmap
-
-- [ ] Calendar events (read + write) via `highlandcows-eventkit` CalendarStore
