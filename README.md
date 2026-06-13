@@ -154,6 +154,8 @@ All fields except `id` are optional — only the fields you supply are changed.
 
 ## Known limitations
 
+**Requires a stdio-capable MCP client.** This server uses stdio transport, which means it must be launched as a subprocess by the MCP client. It works with Claude Desktop and Claude Code but is not compatible with remote or HTTP-based MCP clients.
+
 **Reminders tags are not supported.** Apple does not expose tag read or write access through the public EventKit API, so this server cannot read, set, or filter by native Reminders tags. Tags you have assigned in the Reminders app will not appear in tool output, and `create_reminder` / `update_reminder` have no tag parameter. This is a limitation of EventKit itself, not this server.
 
 ---
