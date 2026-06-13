@@ -152,6 +152,12 @@ All fields except `id` are optional — only the fields you supply are changed.
 
 ---
 
+## Known limitations
+
+**Reminders tags are not supported.** Apple does not expose tag read or write access through the public EventKit API, so this server cannot read, set, or filter by native Reminders tags. Tags you have assigned in the Reminders app will not appear in tool output, and `create_reminder` / `update_reminder` have no tag parameter. This is a limitation of EventKit itself, not this server.
+
+---
+
 ## Tracing
 
 The server logs to stderr. Control verbosity with the `RUST_LOG` environment variable:
