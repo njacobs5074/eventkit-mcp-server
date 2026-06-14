@@ -162,9 +162,51 @@ All fields except `id` are optional — only the fields you supply are changed.
 
 ## Tracing
 
-The server logs to stderr. Control verbosity with the `RUST_LOG` environment variable:
+The server logs to stderr (never stdout — stdout is reserved for MCP JSON-RPC framing). Verbosity is controlled by the `RUST_LOG` environment variable using the standard `tracing` filter syntax:
 
-```bash
-RUST_LOG=info eventkit-mcp-server
-RUST_LOG=debug eventkit-mcp-server
+| Level | What you see |
+|-------|-------------|
+| `error` | Only fatal errors |
+| `warn` | Errors and warnings (recommended for normal use) |
+| `info` | Startup confirmation and per-request summaries (default) |
+| `debug` | Detailed request/response tracing |
+
+### Claude Desktop
+
+Add an `env` block to the server entry in `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "eventkit": {
+      "command": "/path/to/eventkit-mcp-server",
+      "env": {
+        "RUST_LOG": "warn"
+      }
+    }
+  }
+}
 ```
+
+### Claude Code
+
+Add an `env` block to the server entry in `~/.claude.json` (global) or your project's `.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "eventkit": {
+      "type": "stdio",
+      "command": "/path/to/eventkit-mcp-server",
+      "env": {
+        "RUST_LOG": "warn"
+      }
+    }
+  }
+}
+```
+
+Logs are written to:
+
+- **Claude Desktop:** `~/Library/Logs/Claude/mcp-server-eventkit.log`
+- **Claude Code:** `~/Library/Logs/Claude/mcp-server-eventkit.log`
