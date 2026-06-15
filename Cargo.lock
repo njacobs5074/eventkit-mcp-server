@@ -281,9 +281,9 @@ dependencies = [
 
 [[package]]
 name = "highlandcows-eventkit"
-version = "0.5.3"
+version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83504a5c5540d23329c4752a0e95d90043b2769d2185ed4761a06b451337cb2c"
+checksum = "03c05b02087092bbbfce216d9e5a94ad521ea64d9ca3de82222f9fe192af9927"
 dependencies = [
  "block2",
  "chrono",

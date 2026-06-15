@@ -40,17 +40,15 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ### Claude Code
 
-Add to your project or global `.claude/settings.json`:
+Use the CLI to register the server. The default scope is `local` (current project only);
+use `-s user` to register it globally for all projects.
 
-```json
-{
-  "mcpServers": {
-    "eventkit": {
-      "command": "/path/to/eventkit-mcp-server/target/release/eventkit-mcp-server",
-      "type": "stdio"
-    }
-  }
-}
+```bash
+# Current project only:
+claude mcp add eventkit /path/to/eventkit-mcp-server/target/release/eventkit-mcp-server
+
+# All projects (global):
+claude mcp add -s user eventkit /path/to/eventkit-mcp-server/target/release/eventkit-mcp-server
 ```
 
 ---
@@ -65,6 +63,7 @@ Add to your project or global `.claude/settings.json`:
 | `list_reminders` | List incomplete reminders, optionally filtered by list |
 | `get_reminder` | Fetch a single reminder by its stable identifier |
 | `create_reminder` | Create a new reminder |
+| `update_reminder` | Update fields on an existing reminder |
 | `complete_reminder` | Mark a reminder as completed |
 | `delete_reminder` | Delete a reminder by its stable identifier |
 
@@ -102,11 +101,27 @@ Add to your project or global `.claude/settings.json`:
   "notes": "From the co-op",
   "list_id": "optional-list-identifier",
   "due_date": "2026-07-01T09:00:00Z",
-  "priority": 0
+  "priority": 0,
+  "url": "https://example.com"
 }
 ```
 `priority`: `0` = none (default), `1` = high, `5` = medium, `9` = low.  
-`due_date`: RFC 3339 string (optional).
+`due_date`: RFC 3339 string (optional).  
+`url`: any valid URL string (optional).
+
+**`update_reminder`**
+```json
+{
+  "id": "reminder-identifier",
+  "title": "Updated title",
+  "notes": "Updated notes",
+  "due_date": "2026-08-01T09:00:00Z",
+  "priority": 1,
+  "list_id": "target-list-identifier",
+  "url": "https://example.com"
+}
+```
+All fields except `id` are optional — only the fields you supply are changed.
 
 ### Calendar
 
