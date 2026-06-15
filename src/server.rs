@@ -35,6 +35,7 @@ struct ReminderJson {
     is_completed: bool,
     /// 0 = none, 1 = high, 5 = medium, 9 = low
     priority: u8,
+    url: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -83,6 +84,26 @@ struct CreateReminderParams {
     due_date: Option<String>,
     /// Priority: 0 = none (default), 1 = high, 5 = medium, 9 = low
     priority: Option<u8>,
+    /// Optional URL to attach to the reminder
+    url: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+struct UpdateReminderParams {
+    /// Stable identifier of the reminder to update
+    id: String,
+    /// New title (omit to keep current)
+    title: Option<String>,
+    /// New notes body (omit to keep current)
+    notes: Option<String>,
+    /// New due date in RFC 3339 format (omit to keep current)
+    due_date: Option<String>,
+    /// New priority: 0 = none, 1 = high, 5 = medium, 9 = low (omit to keep current)
+    priority: Option<u8>,
+    /// Move to a different Reminder list by identifier (omit to keep current)
+    list_id: Option<String>,
+    /// New URL (omit to keep current)
+    url: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -295,6 +316,7 @@ impl EventKitServer {
             list_identifier: params.list_id,
             due_date,
             priority: params.priority.unwrap_or(0),
+            url: params.url,
             ..Default::default()
         };
 
@@ -332,6 +354,52 @@ impl EventKitServer {
         Ok(CallToolResult::success(vec![Content::text(format!(
             "reminder {} deleted",
             params.id
+        ))]))
+    }
+
+    #[tool(
+        description = "Update an existing reminder. Only the fields you supply are changed."
+    )]
+    fn update_reminder(
+        &self,
+        Parameters(params): Parameters<UpdateReminderParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let store = self.reminder_store.clone();
+        let token = Arc::clone(&self.reminder_token);
+        let id = params.id.clone();
+
+        // Fetch current state.
+        let mut reminder = tokio::task::block_in_place(|| store.fetch(&id, &token))
+            .map_err(eventkit_err)?
+            .ok_or_else(|| {
+                McpError::invalid_params(format!("reminder not found: {id}"), None)
+            })?;
+
+        // Apply supplied fields.
+        if let Some(title) = params.title {
+            reminder.title = title;
+        }
+        if let Some(notes) = params.notes {
+            reminder.notes = Some(notes);
+        }
+        if let Some(s) = params.due_date {
+            reminder.due_date = Some(parse_datetime(&s, "due_date")?);
+        }
+        if let Some(priority) = params.priority {
+            reminder.priority = priority;
+        }
+        if let Some(list_id) = params.list_id {
+            reminder.list_identifier = Some(list_id);
+        }
+        if let Some(url) = params.url {
+            reminder.url = Some(url);
+        }
+
+        let store = self.reminder_store.clone();
+        let token = Arc::clone(&self.reminder_token);
+        tokio::task::block_in_place(|| store.save(&reminder, &*token)).map_err(eventkit_err)?;
+        Ok(CallToolResult::success(vec![Content::text(format!(
+            "reminder {id} updated"
         ))]))
     }
 
@@ -495,7 +563,7 @@ impl ServerHandler for EventKitServer {
                 "Provides tools to read and manage macOS Reminders and Calendar events \
                  via Apple EventKit.\n\
                  Reminders tools: list_reminder_lists, list_reminders, get_reminder, \
-                 create_reminder, complete_reminder, delete_reminder.\n\
+                 create_reminder, update_reminder, complete_reminder, delete_reminder.\n\
                  Calendar tools: list_calendars, list_events, get_event, \
                  create_event, update_event, delete_event.",
             )
@@ -513,6 +581,7 @@ fn reminder_to_json(r: &Reminder) -> ReminderJson {
         due_date: r.due_date.map(|d| d.to_rfc3339()),
         is_completed: r.is_completed,
         priority: r.priority,
+        url: r.url.clone(),
     }
 }
 
