@@ -1,5 +1,7 @@
 # eventkit-mcp-server
 
+[![Rust](https://github.com/njacobs5074/eventkit-mcp-server/actions/workflows/rust.yml/badge.svg)](https://github.com/njacobs5074/eventkit-mcp-server/actions/workflows/rust.yml)
+
 A local [Model Context Protocol](https://modelcontextprotocol.io) server that exposes macOS Reminders and Calendar events via Apple's EventKit framework.
 
 > **Created with [Claude Code](https://claude.ai/code) by Anthropic.**
@@ -60,6 +62,10 @@ claude mcp add -s user eventkit /path/to/eventkit-mcp-server/target/release/even
 | Tool | Description |
 |------|-------------|
 | `list_reminder_lists` | List all Reminder lists visible to the current user |
+| `list_reminder_sources` | List all account sources available for creating reminder lists |
+| `set_default_reminder_source` | Set the default source used when creating new reminder lists |
+| `create_reminder_list` | Create a new Reminder list |
+| `delete_reminder_list` | Delete a Reminder list and all its reminders |
 | `list_reminders` | List incomplete reminders, optionally filtered by list |
 | `get_reminder` | Fetch a single reminder by its stable identifier |
 | `create_reminder` | Create a new reminder |
@@ -83,6 +89,28 @@ claude mcp add -s user eventkit /path/to/eventkit-mcp-server/target/release/even
 ## Tool inputs
 
 ### Reminders
+
+**`list_reminder_sources`** — no parameters
+
+**`set_default_reminder_source`**
+```json
+{ "source_id": "source-identifier" }
+```
+
+**`create_reminder_list`**
+```json
+{
+  "title": "Shopping",
+  "source_id": "optional-source-identifier"
+}
+```
+`source_id` is optional. Omit to use the user-configured default source; if none is set, the system default (from macOS Settings) is used. Call `list_reminder_sources` to see available sources.
+
+**`delete_reminder_list`**
+```json
+{ "id": "list-identifier" }
+```
+Deletes the list and all reminders it contains.
 
 **`list_reminders`**
 ```json
