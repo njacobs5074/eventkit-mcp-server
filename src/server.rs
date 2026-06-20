@@ -41,6 +41,7 @@ struct ReminderJson {
     list_id: Option<String>,
     due_date: Option<String>,
     is_completed: bool,
+    completion_date: Option<String>,
     /// 0 = none, 1 = high, 5 = medium, 9 = low
     priority: u8,
     url: Option<String>,
@@ -68,10 +69,24 @@ struct CalendarEventJson {
 
 // ── Input parameter types ─────────────────────────────────────────────────────
 
+#[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+enum ReminderStatus {
+    /// Only reminders not yet completed (default).
+    #[default]
+    Incomplete,
+    /// Only completed reminders.
+    Completed,
+    /// All reminders regardless of completion status.
+    All,
+}
+
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 struct ListRemindersParams {
     /// Identifier of the Reminder list to filter by (omit for all lists)
     list_id: Option<String>,
+    /// Filter by completion status: "incomplete" (default), "completed", or "all"
+    status: Option<ReminderStatus>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -433,7 +448,7 @@ impl EventKitServer {
     // progress on other threads.
 
     #[tool(
-        description = "List incomplete reminders, optionally filtered to a specific Reminder list"
+        description = "List reminders, optionally filtered to a specific Reminder list and/or by completion status. Use status \"incomplete\" (default) for pending reminders, \"completed\" for done reminders, or \"all\" for both."
     )]
     fn list_reminders(
         &self,
@@ -442,9 +457,16 @@ impl EventKitServer {
         let store = self.reminder_store.clone();
         let token = Arc::clone(&self.reminder_token);
         let list_id = params.list_id;
+        let status = params.status.unwrap_or_default();
         let reminders = tokio::task::block_in_place(|| {
             let ids: Option<Vec<&str>> = list_id.as_deref().map(|id| vec![id]);
-            store.fetch_incomplete(ids.as_deref(), &token)
+            match status {
+                ReminderStatus::Incomplete => store.fetch_incomplete(ids.as_deref(), &token),
+                ReminderStatus::Completed => store
+                    .fetch_all(ids.as_deref(), &token)
+                    .map(|v| v.into_iter().filter(|r| r.is_completed).collect()),
+                ReminderStatus::All => store.fetch_all(ids.as_deref(), &token),
+            }
         })
         .map_err(eventkit_err)?;
         let out: Vec<ReminderJson> = reminders.iter().map(reminder_to_json).collect();
@@ -775,6 +797,7 @@ fn reminder_to_json(r: &Reminder) -> ReminderJson {
         list_id: r.list_identifier.clone(),
         due_date: r.due_date.map(|d| d.to_rfc3339()),
         is_completed: r.is_completed,
+        completion_date: r.completion_date.map(|d| d.to_rfc3339()),
         priority: r.priority,
         url: r.url.clone(),
     }
