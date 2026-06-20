@@ -66,7 +66,7 @@ claude mcp add -s user eventkit /path/to/eventkit-mcp-server/target/release/even
 | `set_default_reminder_source` | Set the default source used when creating new reminder lists |
 | `create_reminder_list` | Create a new Reminder list |
 | `delete_reminder_list` | Delete a Reminder list and all its reminders |
-| `list_reminders` | List incomplete reminders, optionally filtered by list |
+| `list_reminders` | List reminders filtered by completion status and/or list |
 | `get_reminder` | Fetch a single reminder by its stable identifier |
 | `create_reminder` | Create a new reminder |
 | `update_reminder` | Update fields on an existing reminder |
@@ -114,8 +114,13 @@ Deletes the list and all reminders it contains.
 
 **`list_reminders`**
 ```json
-{ "list_id": "optional-list-identifier" }
+{
+  "list_id": "optional-list-identifier",
+  "status": "incomplete"
+}
 ```
+`status`: `"incomplete"` (default) — pending reminders only; `"completed"` — done reminders only; `"all"` — both.  
+`list_id`: optional — omit to search across all lists.
 
 **`get_reminder`** / **`complete_reminder`** / **`delete_reminder`**
 ```json
